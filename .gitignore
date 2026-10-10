@@ -1,0 +1,55 @@
+#============================================================================
+# .gitignore — USB 1.1 Device Controller
+#
+# 入库原则：只收「人写的」源码、testbench、文档、工具脚本。
+# 仿真产物一律可再生（make / make cov），不入库。
+#============================================================================
+
+#---- 操作系统 ----
+.DS_Store
+._*
+
+#---- 编辑器 ----
+*.swp
+*.swo
+*~
+
+#---- Python ----
+__pycache__/
+*.pyc
+
+#---- 仿真产物（可再生）----
+# 波形 / 波形会话 / 编译输出 / 日志 / 单次仿真结果
+*.vcd
+*.wvs
+*.gtkw
+*.vvp
+*.log
+*.out
+*.vcd.src.json
+
+#---- 覆盖率 ----
+# Verilator 构建目录：obj*/ 目标文件、生成的 .cpp/.h、dat/、merged.dat、可执行文件
+sim/*/cov/
+# 模块根下的覆盖率数据
+coverage.dat
+
+#---- 第三方规范 PDF（版权原因不入库）----
+# 说明与获取途径见 docs/utmi_docs_index.md
+docs/*.pdf
+
+#---- 根目录 md（交接 / 规范 / 对话记录），不公开 ----
+# 只排根目录一层，doc/ 等子目录下的文档照常入库。README.md 是仓库首页，保留。
+/*.md
+!/README.md
+
+#---- 本地文件，不公开 ----
+doc/usb.png
+doc/usb_wave.xlsx
+doc/工作簿1.xlsx
+doc/.~*
+
+#---- Claude Code 本地配置（含本机绝对路径）----
+.claude/settings.local.json
+src/.claude/settings.local.json
+tools/.claude/settings.local.json

@@ -1,0 +1,29 @@
+digraph FSM {
+  graph [labelloc="t", labeljust="c", fontname="Helvetica", fontsize=13];
+  label="usb_tx_serial TX 位状态机（1× clk12m 域，6 态两段式）";
+  rankdir=LR;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#EEF2F7", color="#444444", penwidth=1.2, margin="0.15,0.06"];
+  edge [fontname="Helvetica", fontsize=10, color="#555555", arrowsize=0.8];
+  "S_IDLE" [fillcolor="#ECEFF1", label="S_IDLE\ntx_en=0 · 线保持 J", peripheries="2"];
+  "S_SYNC" [fillcolor="#DDEBF7", label="S_SYNC\n载 0x80 移 8 拍\n（不跑填充，恒 8 拍）"];
+  "S_DATA" [fillcolor="#DDEBF7", label="S_DATA\n载 tx_data 移 8 拍"];
+  "S_DATA_LAST" [fillcolor="#DDEBF7", label="S_DATA_LAST\n末字节：8 拍完即转 EOP"];
+  "S_EOP1" [fillcolor="#FFE0B2", label="S_EOP1\nSE0 第 1 拍\n（兼尾填充拍）"];
+  "S_EOP2" [fillcolor="#FFE0B2", label="S_EOP2\nSE0 第 2 拍"];
+  "S_IDLE" -> "S_SYNC" [label="tx_active↑"];
+  "S_SYNC" -> "S_SYNC" [label="未满 8 位", constraint="false"];
+  "S_SYNC" -> "S_DATA" [label="8 位完 · 非末字节"];
+  "S_SYNC" -> "S_DATA_LAST" [label="8 位完 · 末字节", constraint="false"];
+  "S_DATA" -> "S_DATA" [label="未满 8 位 / 非末字节", constraint="false"];
+  "S_DATA" -> "S_DATA_LAST" [label="8 位完 · 末字节"];
+  "S_DATA_LAST" -> "S_DATA_LAST" [label="未满 8 位 / 正插尾填充 0", constraint="false"];
+  "S_DATA_LAST" -> "S_EOP1" [label="末字节 8 位完且不在填充拍"];
+  "S_EOP1" -> "S_EOP1" [label="进态时 ones_cnt=6 → 插尾填充 0", constraint="false"];
+  "S_EOP1" -> "S_EOP2" [label="SE0 第 1 拍完"];
+  "S_EOP2" -> "S_IDLE" [label="SE0 第 2 拍完", constraint="false"];
+  "S_SYNC" -> "S_IDLE" [label="tx_active↓", constraint="false", style="dashed", color="#9E9E9E"];
+  "S_DATA" -> "S_IDLE" [label="tx_active↓", constraint="false", style="dashed", color="#9E9E9E"];
+  "S_DATA_LAST" -> "S_IDLE" [label="tx_active↓", constraint="false", style="dashed", color="#9E9E9E"];
+  "S_EOP1" -> "S_IDLE" [label="tx_active↓", constraint="false", style="dashed", color="#9E9E9E"];
+  "S_EOP2" -> "S_IDLE" [label="tx_active↓", constraint="false", style="dashed", color="#9E9E9E"];
+}

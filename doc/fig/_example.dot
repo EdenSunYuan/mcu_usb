@@ -1,0 +1,14 @@
+digraph FSM {
+  graph [labelloc="t", labeljust="c", fontname="Helvetica", fontsize=13];
+  label="示例状态机 / Example FSM";
+  rankdir=TB;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#EEF2F7", color="#444444", penwidth=1.2, margin="0.15,0.06"];
+  edge [fontname="Helvetica", fontsize=10, color="#555555", arrowsize=0.8];
+  "IDLE" [fillcolor="#FFF3CD", label="IDLE", peripheries="2"];
+  "RUN" [fillcolor="#D6F5D6", label="RUN"];
+  "DONE" [fillcolor="#D6E4F5", label="DONE"];
+  "IDLE" -> "RUN" [label="start"];
+  "RUN" -> "RUN" [label="busy"];
+  "RUN" -> "DONE" [label="finish"];
+  "DONE" -> "IDLE" [label="reset"];
+}

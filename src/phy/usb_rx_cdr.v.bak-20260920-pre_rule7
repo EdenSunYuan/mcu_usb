@@ -1,0 +1,130 @@
+//============================================================================
+// usb_rx_cdr.v — 时钟数据恢复
+// Clock Data Recovery (Intel SIE DPLL, Fig.2)
+//
+// 参考: "Designing A Robust USB Serial Interface Engine"
+// Reference: Intel SIE white paper
+//
+// 单 48MHz ref_clk, 16态状态机, a/b双沿采样DP/DN差分线
+// 恢复12MHz时钟 + NRZI电平数据位流
+// Single 48MHz clock, 16-state FSM, a/b double-edge sampling
+// Recovers 12MHz clock + NRZI level data stream
+//
+// a: ref_clk posedge 采样 rxdp (J=1, K=0)
+// a: sampled at posedge of ref_clk
+//
+// b: ref_clk negedge 采样 rxdp
+// b: sampled at negedge of ref_clk
+//
+// 状态编码 (4-bit):
+// State encoding (4-bit):
+//   state[1] = 恢复时钟 (recovered clock)
+//   state[2] = NRZI 电平 (NRZI level: 0=K, 1=J)
+//
+//   左环(电平K): 1(0001)->3(0011)->2(0010)->0(0000)
+//     Left loop (level K)
+//   右环(电平J): 5(0101)->7(0111)->6(0110)->4(0100)
+//     Right loop (level J)
+//   锁存: C(1100), D(1101)
+//     Lock acquisition
+//   长bit绕行: F(1111), B(1011)
+//     Long-bit detour
+//============================================================================
+
+`timescale 1ns/1ps
+
+module usb_rx_cdr (
+    input  wire       ref_clk,       // 48MHz 时钟 / 48MHz clock
+    input  wire       ref_rstn,      // 异步复位 低有效 / async reset active-low
+    input  wire       rxdp,          // USB D+ (J=1, K=0) / D+ single-ended
+    input  wire       rxdn,          // USB D- (用于SE0检测) / D- (for SE0 detect)
+    output wire       dclk,           // 恢复的12MHz时钟 / recovered 12MHz clock
+    output wire       rx_bit          // NRZI电平 (state[2]) / NRZI level output
+);
+
+    // ---- a 采样 (posedge) ----
+    // a: posedge sample
+    reg a_reg;
+    always @(posedge ref_clk or negedge ref_rstn) begin
+        if (!ref_rstn)
+            a_reg <= 1'b1;          // idle J
+        else
+            a_reg <= rxdp;
+    end
+
+    // ---- b 采样 (negedge) ----
+    // b: negedge sample
+    reg b_reg;
+    always @(negedge ref_clk or negedge ref_rstn) begin
+        if (!ref_rstn)
+            b_reg <= 1'b1;          // idle J
+        else
+            b_reg <= rxdp;
+    end
+
+    // ---- 状态定义 ----
+    // State definitions
+    localparam ST_C = 4'd12;
+    localparam ST_D = 4'd13;
+    localparam ST_F = 4'd15;
+    localparam ST_B = 4'd11;
+
+    reg [3:0] state;
+    reg [3:0] nxt_state;
+    wire      state_clk  = state[1];
+    wire      state_data = state[2];
+    wire      nxt_clk    = nxt_state[1];
+
+    // ---- 组合逻辑: 下一状态 ----
+    // Combinational: next state
+    always @* begin
+        case (state)
+            // 锁存 / Lock Acquisition
+            ST_C:  nxt_state = (b_reg != 1'b0) ? ST_C : ST_D;
+            ST_D:  nxt_state = (b_reg == 1'b0) ? ST_D : 4'd5;
+
+            // 左环(电平K) / Left Loop (level K)
+            4'd1:  nxt_state = 4'd3;
+            4'd3:  nxt_state = (a_reg == 1'b0) ? 4'd2 : ST_F;
+            4'd2:  nxt_state = (b_reg == 1'b0) ? 4'd0 : 4'd5;
+            4'd0:  nxt_state = (b_reg == 1'b0) ? 4'd1 : 4'd5;
+
+            // 右环(电平J) / Right Loop (level J)
+            4'd5:  nxt_state = 4'd7;
+            4'd7:  nxt_state = (a_reg == 1'b1) ? 4'd6 : ST_B;
+            4'd6:  nxt_state = (b_reg == 1'b1) ? 4'd4 : 4'd1;
+            4'd4:  nxt_state = (b_reg == 1'b1) ? 4'd5 : 4'd1;
+
+            // 长bit绕行 / Long-bit Detour
+            ST_F:  nxt_state = 4'd6;
+            ST_B:  nxt_state = 4'd2;
+
+            default: nxt_state = ST_C;
+        endcase
+    end
+
+    // ---- 时序逻辑: 状态更新 ----
+    // Sequential: state update
+    always @(posedge ref_clk or negedge ref_rstn) begin
+        if (!ref_rstn)
+            state <= ST_C;
+        else
+            state <= nxt_state;
+    end
+
+    // ---- 恢复时钟: state[1] 打一拍去毛刺 ----
+    // Recovered clock: state[1] registered (glitch-free)
+    reg clk_12m_reg;
+    always @(posedge ref_clk or negedge ref_rstn) begin
+        if (!ref_rstn)
+            clk_12m_reg <= 1'b0;
+        else
+            clk_12m_reg <= state_clk;
+    end
+    assign dclk = clk_12m_reg;
+
+    // ---- NRZI 电平输出: state[2] ----
+    // NRZI level output
+    assign rx_bit = state_data;
+
+endmodule

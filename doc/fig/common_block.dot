@@ -1,0 +1,58 @@
+
+digraph G {
+    rankdir=LR;
+    graph [labelloc="t", labeljust="c", fontname="Helvetica", fontsize=14,
+           label="公共原语（Common Primitives）", pad=0.5];
+    node [fontname="Helvetica", fontsize=10, penwidth=1.2, shape=box,
+          style="rounded,filled", margin="0.15,0.1"];
+
+    // CRC 组
+    subgraph cluster_crc {
+        label="CRC 校验\n（包级，SIE 使用）";
+        style="rounded,dashed"; color="#1565C0";
+        node [fillcolor="#BBDEFB", color="#1565C0"];
+        crc5 [label="usb_crc5\n(x⁵+x²+1)\n种子 0x1F\n残余 0x0C", width=1.8];
+        crc16 [label="usb_crc16\n(x¹⁶+x¹⁵+x²+1)\n种子 0xFFFF\n残余 0x800D", width=1.8];
+    }
+
+    // NRZI 组
+    subgraph cluster_nrzi {
+        label="NRZI 编解码\n（位级，PHY 使用）";
+        style="rounded,dashed"; color="#E65100";
+        node [fillcolor="#FFE0B2", color="#E65100"];
+        nrzi_enc [label="usb_nrzi_enc\n0=翻转 1=保持\n初始=J(idle)", width=1.8];
+        nrzi_dec [label="usb_nrzi_dec\n同=1 异=0\nref=上一电平", width=1.8];
+    }
+
+    // 位填充组
+    subgraph cluster_stuff {
+        label="位填充\n（位级，PHY 使用）";
+        style="rounded,dashed"; color="#2E7D32";
+        node [fillcolor="#C8E6C9", color="#2E7D32"];
+        stuff [label="usb_bit_stuff\n6个连续1后\n插入0\n(2深FIFO+直通)", width=1.8];
+        unstuff [label="usb_bit_unstuff\n6个连续1后\n丢弃stuffed 0", width=1.8];
+    }
+
+    // 数据流标注
+    edge [fontname="Helvetica", fontsize=9, arrowsize=0.7, color="#555555"];
+
+    // PHY TX 路径
+    tx_path [label="PHY TX 路径\nstuff → nrzi_enc", shape=note, fillcolor="#FFF9C4", color="#F9A825"];
+    stuff -> tx_path [style=invis];
+
+    // PHY RX 路径
+    rx_path [label="PHY RX 路径\nnrzi_dec → unstuff", shape=note, fillcolor="#F3E5F5", color="#7B1FA2"];
+    unstuff -> rx_path [style=invis];
+
+    // 逻辑关系
+    nrzi_enc -> stuff [label=" 数据位", dir=back, color="#E65100", style=dashed];
+    nrzi_dec -> unstuff [dir=none, color="#7B1FA2", style=dashed];
+
+    // CRC 说明
+    crc_note [label="CRC 采用 bit-serial\n逐位喂入(LSB first)\n适配TOKEN 11bit不对齐", shape=note, fillcolor="#E3F2FD", color="#1565C0"];
+    crc5 -> crc_note [style=invis];
+
+    { rank=same; crc5; crc16; tx_path; }
+    { rank=same; nrzi_enc; nrzi_dec; rx_path; }
+    { rank=same; stuff; unstuff; crc_note; }
+}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="300" style="background:#1a1a2e;font-family:monospace">
+<text x="50" y="18" fill="#eee" font-size="11">F Detour (3→F→6)  |  4750ns ~ 4917ns</text>
+<text x="5" y="51" fill="#0ff" font-size="9">rxdp</text>
+<line x1="50" y1="90" x2="950" y2="90" stroke="#333" stroke-width="0.5"/>
+<rect x="50" y="47.5" width="56" height="15" fill="#0ff" opacity="0.15"/>
+<rect x="106" y="47.5" width="844" height="15" fill="#0ff" opacity="0.85"/>
+<text x="5" y="106" fill="#f6f" font-size="9">rxdn</text>
+<line x1="50" y1="145" x2="950" y2="145" stroke="#333" stroke-width="0.5"/>
+<rect x="50" y="102.5" width="56" height="15" fill="#f6f" opacity="0.85"/>
+<rect x="106" y="102.5" width="844" height="15" fill="#f6f" opacity="0.15"/>
+<text x="5" y="161" fill="#ff0" font-size="9">c12m</text>
+<line x1="50" y1="200" x2="950" y2="200" stroke="#333" stroke-width="0.5"/>
+<rect x="50" y="157.5" width="112" height="15" fill="#ff0" opacity="0.85"/>
+<rect x="162" y="157.5" width="225" height="15" fill="#ff0" opacity="0.15"/>
+<rect x="387" y="157.5" width="338" height="15" fill="#ff0" opacity="0.85"/>
+<rect x="725" y="157.5" width="225" height="15" fill="#ff0" opacity="0.15"/>
+<rect x="950" y="157.5" width="1" height="15" fill="#ff0" opacity="0.85"/>
+<text x="5" y="216" fill="#0f0" font-size="9">d_out</text>
+<line x1="50" y1="255" x2="950" y2="255" stroke="#333" stroke-width="0.5"/>
+<rect x="50" y="212.5" width="337" height="15" fill="#0f0" opacity="0.15"/>
+<rect x="387" y="212.5" width="563" height="15" fill="#0f0" opacity="0.85"/>
+</svg>

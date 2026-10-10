@@ -1,0 +1,91 @@
+
+digraph G {
+    rankdir=TB;
+    graph [labelloc="t", labeljust="c", fontname="Helvetica", fontsize=14,
+           label="usb_dpll_phy 内部模块框图\n(ref_clk 48MHz 4x / clk12m 12MHz 1x)\nref_clk 与 ref_rstn 进全部五个子模块（图中省略）", pad=0.5];
+    node [fontname="Helvetica", fontsize=10, penwidth=1.2];
+    edge [fontname="Helvetica", fontsize=9, color="#555555", arrowsize=0.8];
+
+    // ---- 外部边界 / external boundary ----
+    dp [label="usb_rxdp\nusb_rxdn", shape=oval, fillcolor="#E8F5E9", style=filled, color="#388E3C"];
+    tx_out [label="tx_bit tx_se0 tx_en\n-&gt; 模拟驱动", shape=oval, fillcolor="#FCE4EC", style=filled, color="#C62828"];
+    rst_in [label="usb_rst\n(core 复位：总线复位 ∪ 软复位,\n同步高有效、宽 1 个 clk12m 周期)",
+            shape=oval, fillcolor="#ECEFF1", style=filled, color="#546E7A"];
+    to_sie [label="→ SIE：rx_data[7:0] rx_valid\nrx_active rx_error\nline_state[1:0]\ntx_ready tx_done\nconnect/rst/suspend/resume",
+            shape=oval, fillcolor="#E3F2FD", style=filled, color="#1565C0"];
+    from_sie [label="← SIE：rcv tx_active\ntx_data[7:0] tx_last\nsie_wkup",
+              shape=oval, fillcolor="#FFF3E0", style=filled, color="#E65100"];
+
+    // ---- ① CDR ----
+    subgraph cluster_cdr {
+        label="usb_rx_cdr  时钟数据恢复 (ref_clk 4x)";
+        fontsize=10;
+        style="rounded,dashed"; color="#1565C0"; bgcolor="#E3F2FD44";
+        cdr_box [label="DPLL 16 态\na/b 双沿采样\ndclk 去毛刺打拍\nrx_bit 组合输出", shape=box, fillcolor="#E3F2FD", style="filled,rounded"];
+    }
+
+    // ---- ② 时钟切换 ----
+    subgraph cluster_mux {
+        label="usb_clk_mux  时钟切换 (ref_clk 4x)";
+        fontsize=10;
+        style="rounded,dashed"; color="#6A1B9A"; bgcolor="#F3E5F544";
+        mux_box [label="dclk / clk12s\n4 态无毛刺切换\n-&gt; clk12m", shape=box, fillcolor="#F3E5F5", style="filled,rounded"];
+    }
+
+    // ---- ③ RX 反序列化 ----
+    subgraph cluster_rx {
+        label="usb_rx_deserial  RX 反序列化 (clk12m 1x)";
+        fontsize=10;
+        style="rounded,dashed"; color="#2E7D32"; bgcolor="#E8F5E944";
+        rx_box [label="SYNC 检测 / NRZI 解码\n位解填充 / 字节对齐\nEOP·SE0 定界 (ref_clk 4x)\nline_s 采样 (ref_clk 4x)\nframe_clr 复位 (usb_rst ∪ tx_active ∪ rx_abort)",
+                shape=box, fillcolor="#E8F5E9", style="filled,rounded"];
+    }
+
+    // ---- ④ TX 串行器 ----
+    subgraph cluster_tx {
+        label="usb_tx_serial  TX 串行器 (clk12m 1x)";
+        fontsize=10;
+        style="rounded,dashed"; color="#C62828"; bgcolor="#FCE4EC44";
+        tx_box [label="SYNC 生成 / 位填充\nNRZI 编码 / EOP 生成\n挂起·远程唤醒 K 旁路\n(bus_suspended &amp; sie_wkup)", shape=box, fillcolor="#FCE4EC", style="filled,rounded"];
+    }
+
+    // ---- ⑤ 总线状态检测 ----
+    subgraph cluster_bus {
+        label="usb_bus_state  总线状态检测 (ref_clk 判据 -&gt; clk12m 脉冲)";
+        fontsize=10;
+        style="rounded,dashed"; color="#EF6C00"; bgcolor="#FFF3E044";
+        bus_box [label="一条计数器 + connected/suspended\nJ &gt;= 2.5us -&gt; connect_evt\nSE0 &gt;= 2.5us -&gt; usb_bus_rst\nidle &gt; 3ms -&gt; suspend_evt\n挂起中 K &gt;= 2.5us -&gt; resume_evt",
+                 shape=box, fillcolor="#FFF3E0", style="filled,rounded"];
+    }
+
+    // ---- Edges: RX 通路 ----
+    dp -> cdr_box [label=" rxdp / rxdn", color="#1565C0"];
+    dp -> rx_box  [label=" 单端直采", style=dashed, color="#2E7D32", constraint=false];
+    cdr_box -> mux_box [label=" dclk", color="#6A1B9A"];
+    cdr_box -> rx_box  [label=" rx_bit", color="#1565C0", constraint=false];
+    mux_box -> rx_box  [label=" clk12m", color="#2E7D32"];
+    mux_box -> tx_box  [label=" clk12m", color="#2E7D32", style=dashed, constraint=false];
+    rx_box -> to_sie  [label=" 字节流 + 包边界", color="#1565C0"];
+
+    // ---- Edges: TX 通路 ----
+    from_sie -> tx_box [label=" 字节 + tx_active", color="#E65100"];
+    tx_box -> tx_out [label=" 线电平 + 驱动使能", color="#C62828"];
+
+    // ---- Edges: 方向与互斥 ----
+    from_sie -> mux_box [label=" rcv", color="#6A1B9A", constraint=false];
+    from_sie -> rx_box  [label=" tx_active / rx_abort", style=dashed, color="#9E9E9E", constraint=false];
+
+    // ---- Edges: 线状态交给总线状态检测 ----
+    rx_box -> bus_box [label=" line_s", style=dashed, color="#EF6C00"];
+    bus_box -> to_sie [label=" 四个事件", style=dashed, color="#EF6C00", constraint=false];
+    bus_box -> tx_box [label=" bus_suspended", style=dashed, color="#C62828", constraint=false];
+
+    // ---- Edges: core 复位 ----
+    rst_in -> rx_box  [style=dotted, color="#546E7A", constraint=false];
+    rst_in -> bus_box [style=dotted, color="#546E7A", constraint=false];
+
+    // ---- 行约束 / ranks：左列 RX 链，右列 TX 链 ----
+    // ★ 不能把 cluster 内的节点放进 cluster 外的 rank 组（graphviz 会把该节点
+    //   从 cluster 里摘掉、"removing empty cluster"），行对齐只靠约束边给。
+    { rank=same; dp; from_sie; rst_in; }
+}
